@@ -1,0 +1,238 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+    <script src="/javascript/markdown.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#ruby" id="ruby-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Ruby's Hash</span></a></li>
+        <li><a href="#go" id="go-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Go's map</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Hashmap in Ruby and Golang</div>
+          <div class="blog-date">Oct 25, 2018</div>
+          <div class="align-left">
+            <p>
+              Recently I encountered a problem of Go's map.
+              In Ruby, I knew that map reallocates if its size increases, it
+              seems Go has the same mechanism.
+              But what happens if its size decreases, in Ruby and in Go?
+            </p>
+            <p>
+              To find what happens, Lets read the source code of Go, as well as
+              Ruby.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="ruby">
+        <div class="container">
+          <h3>Ruby's Hash</h3>
+          <div class="align-left">
+            <p>
+               Ruby's hashmap <code>Hash</code> is implemented as struct
+              <code>st_table</code> in
+              <a href="https://github.com/ruby/ruby/blob/trunk/st.c"><code>st.c</code></a>.
+              Variable <code>features</code> is the reallocation size of new
+              hash
+            </p>
+<pre class="code">
+struct st_features {
+    /* Power of 2 used for number of allocated entries.  */
+    unsigned char entry_power;
+    /* Power of 2 used for number of allocated bins.  Depending on the
+       table size, the number of bins is 2-4 times more than the
+       number of entries.  */
+    unsigned char bin_power;
+    /* Enumeration of sizes of bins (8-bit, 16-bit etc).  */
+    unsigned char size_ind;
+    /* Bins are packed in words of type st_index_t.  The following is
+       a size of bins counted by words.  */
+    st_index_t bins_words;
+};
+static const struct st_features features[] = {
+    {0, 1, 0, 0x0},
+    {1, 2, 0, 0x1},
+    {2, 3, 0, 0x1},
+    {3, 4, 0, 0x2},
+    ...
+}
+</pre>
+            <p>
+              which is used in <code>st_init_table_with_size</code> (macros are
+              not showed here)
+            </p>
+<pre class="code">
+/* Create and return table with TYPE which can hold at least SIZE
+   entries.  The real number of entries which the table can hold is
+   the nearest power of two for SIZE.  */
+st_table *
+st_init_table_with_size(const struct st_hash_type *type, st_index_t size)
+{
+    st_table *tab;
+    int n;
+    n = get_power2(size);
+    tab = (st_table *) malloc(sizeof (st_table));
+    tab-&gt;type = type;
+    tab-&gt;entry_power = n;
+    tab-&gt;bin_power = features[n].bin_power;
+    tab-&gt;size_ind = features[n].size_ind;
+    if (n &lt;= MAX_POWER2_FOR_TABLES_WITHOUT_BINS)
+        tab-&gt;bins = NULL;
+    else
+        tab-&gt;bins = (st_index_t *) malloc(bins_size(tab));
+    tab-&gt;entries = (st_table_entry *) malloc(get_allocated_entries(tab)
+                                             * sizeof(st_table_entry));
+    make_tab_empty(tab);
+    tab-&gt;rebuilds_num = 0;
+    return tab;
+}
+</pre>
+            <p>
+              This function creates a new st_table (hash), and is called when
+              resizing hash in
+            </p>
+<pre class="code">
+/* Rebuild table TAB.  Rebuilding removes all deleted bins and entries
+   and can change size of the table entries and bins arrays.
+   Rebuilding is implemented by creation of a new table or by
+   compaction of the existing one.  */
+static void
+rebuild_table(st_table *tab)
+{
+    ...
+
+    if ((2 * tab-&gt;num_entries &lt;= get_allocated_entries(tab)
+         &amp;&amp; REBUILD_THRESHOLD * tab-&gt;num_entries &gt; get_allocated_entries(tab))
+        || tab-&gt;num_entries &lt; (1 &lt;&lt; MINIMAL_POWER2)) {
+        /* Compaction: */
+        tab-&gt;num_entries = 0;
+        if (tab-&gt;bins != NULL)
+            initialize_bins(tab);
+        new_tab = tab;
+        new_entries = entries;
+    }
+    else {
+        new_tab = st_init_table_with_size(tab-&gt;type,
+                                          2 * tab-&gt;num_entries - 1);
+        new_entries = new_tab-&gt;entries;
+    }
+    ...
+
+    if (new_tab != tab) {
+        tab-&gt;entry_power = new_tab-&gt;entry_power;
+        tab-&gt;bin_power = new_tab-&gt;bin_power;
+        tab-&gt;size_ind = new_tab-&gt;size_ind;
+        if (tab-&gt;bins != NULL)
+            free(tab-&gt;bins);
+        tab-&gt;bins = new_tab-&gt;bins;
+        free(tab-&gt;entries);
+        tab-&gt;entries = new_tab-&gt;entries;
+        free(new_tab);
+    }
+    tab-&gt;entries_start = 0;
+    tab-&gt;entries_bound = tab-&gt;num_entries;
+    tab-&gt;rebuilds_num++;
+}
+</pre>
+            <p>
+              <code>rebuild_table</code> checks if size is greater than the
+              threshold, <code>st_init_table_with_size</code> is called and
+              a new allocated table is returned, otherwise, compact the existing
+              table. Also several <code>free</code>s are called if
+              <code>new_tab != tab</code>, that is, reallocation happens.
+            </p>
+            <p></p>
+          </div>
+        </div>
+      </section>
+      <section id="go">
+        <div class="container">
+          <h3>Go's map</h3>
+          <div class="align-left">
+            <p>
+              And in Go's hashmap, <code>map</code>, is implemented in
+              <a href="https://github.com/golang/go/blob/master/src/runtime/map.go">
+                <code>src/runtime/map.go</code>
+              </a>.
+              Function <code>mapassign</code> is used when a new value is
+              assigned.
+            </p>
+<pre class="code">
+// Like mapaccess, but allocates a slot for the key if it is not present in the map.
+func mapassign(t *maptype, h *hmap, key unsafe.Pointer) unsafe.Pointer {
+  if h == nil {
+    panic(plainError("assignment to entry in nil map"))
+  }
+
+  ...
+
+again:
+  bucket := hash &amp; bucketMask(h.B)
+  if h.growing() {
+    growWork(t, h, bucket)
+  }
+  b := (*bmap)(unsafe.Pointer(uintptr(h.buckets) + bucket*uintptr(t.bucketsize)))
+  top := tophash(hash)
+
+  var inserti *uint8
+  var insertk unsafe.Pointer
+  var val unsafe.Pointer
+bucketloop:
+  for {
+    ...
+  }
+
+  // Did not find mapping for key. Allocate new cell &amp; add entry.
+
+  // If we hit the max load factor or we have too many overflow buckets,
+  // and we're not already in the middle of growing, start growing.
+  if !h.growing() &amp;&amp; (overLoadFactor(h.count+1, h.B) || tooManyOverflowBuckets(h.noverflow, h.B)) {
+    hashGrow(t, h)
+    goto again // Growing the table invalidates everything, so try again
+  }
+
+  ...
+}
+</pre>
+            <p>
+              <code>hashGrow</code> is called here if max load factor is hit or
+              too many overflow buckets. <code>makeBucketArray</code> is called
+              in <code>hashGrow</code>, which reallocates.
+              There is no counterpart in <code>mapdelete</code> which
+              reallocates map.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section>
+        <div class="container">
+          <h3>Conclusion</h3>
+          <div class="align-left">
+            <p>
+              Hashmap in both Ruby and Go reallocates when the size increases
+              for re-placing objects in buckets. But the reallocation is not
+              invoked when the size decreases.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="article_init()"></div>
+    </div>
+  </body>
+</html>

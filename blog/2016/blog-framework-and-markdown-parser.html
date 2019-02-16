@@ -1,0 +1,49 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+    <script src="/javascript/markdown.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#md-content" id="md-content-link" class="skel-layers-ignoreHref"><span class="icon fa-file-code-o">Markdown</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Blog Framework and Markdown Parser</div>
+          <div class="blog-date">July 28, 2016</div>
+          <div class="align-left">
+            I wrote a markdown parser in JavaScript which converts markdown to HTML.
+            By calling
+<pre class="code code-javascript">
+$.load_markdown('#readme', '/README.md');
+</pre>
+            it loads markdown file by Ajax and renders it into HTML.
+            Content below is generated from the markdown file
+            <a href="/README.md" target="_blank">README.md</a>
+          </div>
+        </div>
+      </section>
+      <section id="md-content">
+        <div class="container">
+          <h3>README.md</h3>
+          <div id="readme" class="align-left"></div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="jQuery.load_markdown('#readme', '/README.md'); article_init()"></div>
+    </div>
+  </body>
+</html>

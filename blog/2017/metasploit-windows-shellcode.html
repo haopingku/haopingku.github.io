@@ -1,0 +1,134 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+    <script src="/javascript/markdown.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Metasploit Windows Shellcode</div>
+          <div class="blog-date">Oct 26, 2017</div>
+          <div class="align-left">
+            <p>
+              Metasploit is a famous penetration testing framework. Recently
+              I am working on its Windows shellcode.
+              It can load and run any function it wants.
+            </p>
+            <p>
+              I am going to explain the shellcode in AT&amp;T syntax Assembly
+              in this article. What it does:
+            </p>
+            <ul>
+              <li>get <code>%eip</code> (program counter)</li>
+              <li>use Windows PEB structure to iterate all functions</li>
+              <li>find specified function by using hash</li>
+            </ul>
+            <p>
+              The hash function calculates the string of a function into a integer.
+              For example, if we want the hash of LoadLibraryA in kernel32.dll, first
+              we contruct the string "KERNEL32.DLL!LoadLibraryA", notice that the
+              library name is all in upcase because file names in Windows are not
+              case sensitive, however the function name is case sensitive.
+              The hash function in Ruby code is
+            </p>
+<pre class="code code-ruby">
+# hash.rb
+def ror i, bits = 13
+  ((i &gt;&gt; bits) | (i &lt;&lt; (32 - bits))) &amp; 0xFFFFFFFF
+end
+def hash mod, func
+  mod_hash = "#{mod.upcase.b}\x00"
+    .encode('utf-16le')
+    .unpack('C*')
+    .inject(0){|h, i| ror(h) + i}
+  func_hash = "#{func.b}\x00"
+    .unpack('C*')
+    .inject(0){|h, i| ror(h) + i}
+  (mod_hash + func_hash) &amp; 0xFFFFFFFF
+end
+mod, func = *ARGV
+puts('0x%08X = %s!%s' % [hash(mod, func), mod, func])
+</pre>
+            <p>
+              and the usage is
+            </p>
+<pre class="code">
+$ ruby hash.rb kernel32.dll LoadLibraryA
+0x0726774C = kernel32.dll!LoadLibraryA
+</pre>
+            <p>
+              The reason why hash is used here is that by using hash, we can compare
+              two strings without iterating both strings simultaneously.
+            </p>
+            <p>
+              Let's read the shellcode (file is
+              <a href="/file/metasploit-shellcode.s" target="_blank">here</a>)
+            </p>
+<pre class="code code-x86asm">
+shellcode:
+    fcmovnb  %st(0),%st
+    fnstenv  -0xc(%esp) # get eip
+    pop    %eax
+    call   f0 # main
+</pre>
+            <p>
+              <code>fnstenv</code> here gets the program counter, and pushes it in stack
+            </p>
+<pre class="code code-x86asm">
+f0:
+    pop    %ebp
+    push   $0x3233
+    push   $0x5f327377
+    push   %esp
+    push   $0x726774c # kernel32.dll!LoadLibraryA
+    call   *%ebp
+    mov    $0x190,%eax
+    sub    %eax,%esp
+    push   %esp
+    push   %eax
+    push   $0x6b8029
+    call   *%ebp # ws2_32.dll!WSAStartup
+</pre>
+					  <p>
+              <code>%ebp</code> here is the address of next instruction of
+              <code>call f0</code> above. <code>call *%ebp</code> can
+              be used as a function call, its first parameter is the hash of
+              the function and the rest parameters are ones sent to the function.
+              In this example, its C code is like
+              <code>call_ebp(0x726774c, "ws2_32")</code> and this becomes
+              <code>LoadLibraryA("ws2_32")</code>. Then it calls WSAStartup.
+            </p>
+            <p>
+              Assembly code between this two parts iterates the PEB
+              structure and finds the function with the hash provided.
+            </p>
+            <p>
+              By using this shellcode, we can run any code we want.
+              Furthermore due to its ability to find the program counter, it can be
+              inserted to a remote machine.
+              These two features make it powerful.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="article_init()"></div>
+    </div>
+  </body>
+</html>
+

@@ -1,0 +1,131 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+    <script src="/javascript/markdown.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Javascript's Event Loop</div>
+          <div class="blog-date">Dec 8, 2018</div>
+          <div class="align-left">
+            <p>
+              Since Javascript has no sleep function as other languages, and
+              there is also no mutex, how does Javascript handle multithread?
+              <code>setTimeout</code> is usually used for pending something
+              to do in a while, how is it implemented?
+            </p>
+            <p>
+              In short, Javascript is a single-threaded, non-blocking,
+              asynchronous, concurrent runtime.
+            </p>
+            <p>
+              "Single-threaded", sounds weird, right?
+            </p>
+            <p>
+              Let's start with the concurrency model.
+              Javscript's concurrency model is called <i>event loop</i>.
+              An event is a context consists of code to be executed.
+              And there is a queue of events in JS runtime.
+              When <code>setTimeout</code> or other asynchronous functions
+              (e.g. ajax functions) are called, JS runtime pushes an event
+              into the queue.
+              When JS runtime ends one event, it picks the top event in the
+              queue and runs it, and so on.
+              Notice that if an event takes a lot of time, JS runtime blocks
+              on it because a context switch happens only when the last one
+              is done.
+            </p>
+            <p>
+              Only one call stack for function calls is needed, because
+              context switch happends only when the call stack is empty.
+              This is why JS is "single-threaded."
+            </p>
+            <p>
+              For example the following code:
+            </p>
+<pre class="code code-javascript">
+function busy() {
+  while(true);
+}
+function sayHi() {
+  console.log("hi");
+}
+console.log("start");
+setTimeout(sayHi, 10);
+busy();
+</pre>
+            <p>
+              In other language using multithread, <code>sayHi</code> should
+              be called in 10 milliseconds no matter how long <code>busy</code>
+              takes.
+              In event loop model, the event <code>busy</code> blocks the
+              process, <code>sayHi</code> is called when <code>busy</code>
+              ends, which will not happen in this case.
+              This result doesn't change even we change 10 to 0.
+            </p>
+            <p>
+              One adventage of event loop is that it's single-threaded, simple
+              to implement.
+              Furthermore, no mutex is needed, because context switchs happen
+              only when an event is done, which also means no race condition.
+              Furthermore, no sleep function means that Javascript runtime
+              never blocks.
+            </p>
+            <p>
+              References:
+              <ul>
+                <li>
+                  <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/EventLoop">
+                    Mozilla MDN: Concurrency model and Event Loop
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.youtube.com/watch?v=6MXRNXXgP_0">
+                    Philip Robert's speech "Help I'm stuck in an event loop"
+                  </a>
+                </li>
+              </ul>
+            </p>
+            <hr>
+            <p>(Appendix)</p>
+            <p>
+              Below is a function I wrote for running a series of
+              executions with time intervals between them.
+              This acts like <code>sleep</code> function in other languages.
+            </p>
+<pre class="code code-javascript">
+function series(...a) {
+  a[0] &amp;&amp; setTimeout(series, parseInt(a[0]()), ...a.slice(1));
+}
+
+// print "1", "2", "3" with time interval of 1 second
+series(
+  () =&gt; { console.log(1); return 1000; },
+  () =&gt; { console.log(2); return 1000; },
+  () =&gt; { console.log(3);},
+);
+</pre>
+          </div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="article_init()"></div>
+    </div>
+  </body>
+</html>

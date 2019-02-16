@@ -1,0 +1,301 @@
+@import url(font-noto-sans.css);
+@import url(font-noto-serif.css);
+@import url(font-source-code-pro.css);
+
+body {
+    display: none;
+    background-color: #151515;
+}
+
+::selection{
+    background-color: #CCC;
+}
+
+.align-left {
+    text-align: left;
+}
+
+.paragraph {
+    margin: 1em 0;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.border-none {
+    border: none;
+}
+
+#logo >span {
+    background-color: transparent;
+}
+#logo >span img {
+    border-radius: 50%;
+}
+
+#logo a {
+    border-bottom: none;
+}
+
+#logo #title {
+    margin-bottom: .8em;
+}
+
+#logo .logo-href {
+    margin: .6em 0;
+    font-size: 80%;
+}
+
+section.dark div.container {
+    color: white;
+}
+
+#about h3 {
+    margin: .5em 0;
+}
+
+code, pre.code, .code {
+    font-family: "Source Code Pro", Consolas, Courier, monospace;
+}
+
+#main > section code {
+  color: #7D0000;
+}
+
+#main > section div.title {
+    font-weight: bold;
+    color: #b33b50;
+}
+
+#main > section div.date, #main section div.brief {
+    font-family: "Noto Serif", Arial;
+    color: #5a5656;
+}
+
+#main > section div.date {
+    font-style: italic;
+}
+
+#main div.paragraph div.date {
+    margin-left: 0;
+}
+
+@media screen and (min-width: 550px) {
+    #main > section#about div.title,  #main > section#about div.float-left{
+        float: left;
+    }
+
+    #main > section#about div.date {
+        float: right;
+        margin-left: .5em;
+    }
+
+    #main > section#about div.content {
+        clear: both;
+    }
+}
+
+#main > section span.date {
+    font-style: italic;
+    padding-left:1em;
+    font-weight: 100;
+}
+
+#main > section div.content {
+    -margin-left: 5%;
+    -padding-bottom: 2%;
+    padding: .4em 0;
+    clear: both;
+}
+
+@media screen and (max-width: 550px) {
+    #main > section div.content {
+        margin-left: 0;
+    }
+}
+
+#main >section li:before {
+    font-family: "FontAwesome";
+    content: "\00a0\00a0\00a0\f120\00a0\00a0";
+}
+
+#main > section ul.hacker > li:before {
+    font-family: "FontAwesome";
+    content: "\00a0\00a0\00a0\f21b\00a0\00a0";
+}
+
+#contact .icon {
+    margin: 0 1em;
+}
+
+#contact .icon:before {
+    font-size: 2.5em;
+}
+
+#main div.blog-title, #main div.blog-date {
+    color: #b33b50;
+    padding-bottom: .5em;
+}
+
+#main div.blog-title {
+    font-weight: bold;
+    font-size: 200%;
+    line-height: 115%;
+}
+
+#main div.blog-date {
+    text-align: right;
+    font-style: italic;
+}
+
+#main pre.code {
+    background-color: rgba(0, 0, 0, 0.05);
+    overflow: auto;
+    line-height: normal;
+    padding: 1em;
+}
+
+#articles > div.container > p {
+    font-size: 115%;
+}
+
+#articles > div > div:before, #articles >div >article:before {
+    position: absolute;
+    left: 0.6em;
+    display: inline-block;
+    font-family: "FontAwesome";
+    content: "\f0f6";
+    color: #b33b50;
+}
+
+#articles > div > div {
+    text-align: left;
+    padding: 0 0 .5em 1.5em;
+    position: relative;
+}
+
+#articles > div > div >span {
+    padding-left: 1em;
+}
+
+#articles > div > div > span.title {
+    color: #b33b50;
+}
+
+#articles > div > div > span.date {
+    display: none;
+    font-style: italic;
+    color: #777;
+}
+
+#articles > div > article {
+    text-align: left;
+    padding: 2em;
+    border-bottom: 1px solid #DDD;
+    position: relative;
+}
+
+#articles span.tags {
+    font-style: italic;
+    font-size: 90%;
+    color: #666;
+    padding-left: 1em;
+}
+
+#tag-descriptor:before, #articles span.tag:before {
+    font-family: "FontAwesome";
+    content: "\f02b";
+    font-size: 80%;
+    padding-right: .3em;
+}
+
+#articles span.tag {
+    color: inherit;
+    padding: 0 .2em;
+    cursor: pointer;
+}
+
+#articles div.readmore {
+    font-style: italic;
+    color: #666;
+}
+
+#tag-canceler > span {
+    opacity: 0.5;
+    font-size: 90% !important;
+    cursor: pointer;
+}
+
+#blog img {
+    -margin: 1em;
+}
+
+#blog div.right {
+    text-align: center;
+}
+
+#blog div.right img {
+    width: 70%;
+}
+
+@media screen and (min-width: 550px) {
+    #blog div.right {
+        float: right;
+        width: 40%;
+    }
+}
+
+#blog div.left {
+    text-align: center;
+}
+
+#blog div.left img {
+    width: 70%;
+}
+@media screen and (min-width: 550px) {
+    #blog div.left {
+        text-align: left;
+    }
+
+    #blog div.left img {
+        width: auto;
+    }
+}
+
+#blog img.border {
+    padding: .5em;
+    border-bottom: none;
+    border: 1px solid;
+}
+
+@media screen and (min-width: 550px) {
+    #blog img.left {
+        width: auto;
+    }
+}
+
+div#lang-support {
+    color: rgb(134, 35, 52);
+    text-align: right;
+}
+
+div#lang-support >span {
+    cursor: pointer;
+    font-size: 80%;
+    margin: 0 .3em;
+}
+
+#nav li.single-page {
+    background-color: #444;
+}
+
+pre.code {
+    font-size: 80%;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    border: none !important;
+    overflow: auto;
+    line-height: normal;
+    padding: 1em;
+}
+

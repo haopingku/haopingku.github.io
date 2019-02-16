@@ -1,0 +1,229 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+    <script src="/javascript/markdown.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Picasa3 Photo Viewer Reverse Engineering</div>
+          <div class="blog-date">May 21, 2017</div>
+          <div class="align-left">
+            <p>
+              Picasa3 photo viewer is good (though Google stop supporting it).
+              I love to use it, but it has a strange feature that it checks if
+              there is already an picasa3 photo viewer window (instance) opened.
+              If so, it tells the opened one to change the picture instead of
+              opening a new one.
+              In other words, you can't open multiple pictures in the same time.
+              Annoying!
+            </p>
+            <p>
+              So I decided to reverse it, to erase this feature. Tools I used:
+            </p>
+            <ul>
+              <li>MinGW (bash, objdump, GDB)</li>
+              <li>Ruby 2.3</li>
+            </ul>
+            <p>
+              First, I had to find out the code it use to detect the existence
+              of instance. But Picasa3 is not open-sourced and I had no idea
+              about it.
+              I came out that the famous editor
+              <a href="https://notepad-plus-plus.org/">Notepad++</a> also checks
+              the instance, and it's open-sourced.
+              I found something interesting
+            </p>
+<pre class="code code-c">
+// in npp.6.6.6.src.7z/PowerEditor/src/winmain.cpp
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
+{
+	LPTSTR cmdLine = ::GetCommandLine();
+	ParamVector params;
+	parseCommandLine(cmdLine, params);
+
+	MiniDumper mdump;	//for debugging purposes.
+
+	bool TheFirstOne = true;
+	::SetLastError(NO_ERROR);
+	::CreateMutex(NULL, false, TEXT("nppInstance"));
+	if (::GetLastError() == ERROR_ALREADY_EXISTS)
+		TheFirstOne = false;
+  ...
+</pre>
+            <p>
+              It uses WinAPI's <code>CreateMutex</code> function and
+              <code>lastError</code> to detect other instance.
+            </p>
+            <p>
+              But does Picasa3 use the same function?
+            </p>
+<pre class="code">
+$ strings PicasaPhotoViewer.exe | grep CreateMutex
+CreateMutexA
+</pre>
+            <p>
+              Bingo! CreateMutexA means the ANSI version of CreateMutex.
+              Next, we have to find the position of assembly code.
+              I used GDB, set breakpoints and analyze it.
+              But dynamic linking is a little complicated and annoying.
+              So I changed my strategy to a tricky way.
+              What we want is <code>ERROR_ALREADY_EXISTS</code>, so I did a
+              little experience
+            </p>
+<pre class="code code-c">
+// test.c
+#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;conio.h&gt;
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    SetLastError(NO_ERROR);
+    CreateMutex(NULL, 0, TEXT("test"));
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+      printf("Not first.\n");
+    else
+      printf("First.\n");
+    while (1) {
+      Sleep(1);
+      if (kbhit())
+        break;
+    }
+    return 0;
+}
+</pre>
+<pre class="code">
+$ gcc -o test test.c
+$ objdump -d test.exe
+</pre>
+            <p>
+              We can get the assembly code here
+            </p>
+<pre class="code">
+...
+401349: c7 44 24 08 24 30 40  movl   $0x403024,0x8(%esp)
+401350: 00
+401351: c7 44 24 04 00 00 00  movl   $0x0,0x4(%esp)
+401358: 00
+401359: c7 04 24 00 00 00 00  movl   $0x0,(%esp)
+401360: e8 e3 08 00 00        call   401c48 &lt;_CreateMutexA@12&gt;
+401365: 83 ec 0c              sub    $0xc,%esp
+401368: e8 e3 08 00 00        call   401c50 &lt;_GetLastError@0&gt;
+40136d: 3d b7 00 00 00        cmp    $0xb7,%eax
+...
+</pre>
+            <p>
+              First three lines puts parameters from right to left.
+              Then it calls <code>CreateMutexA</code> in 0x401360,
+              <code>GetLastError</code> in 0x401368, compares to
+              <code>ERROR_ALREADY_EXISTS</code> in 0x40136d.
+            </p>
+            <p>
+              So we can just find <code>"cmp    $0xb7,%"</code> in Picasa's
+              dump. I found four positions
+            </p>
+            <ul>
+              <li>436598</li>
+              <li>4366b1</li>
+              <li>436bbd</li>
+              <li>4d05f2</li>
+            </ul>
+            <p>
+              (Picasa calls <code>CreateMutex</code> not only once, you can
+              check it by GDB.)
+              Now we set this positions as breakpoints.
+              I guess that the one we want is the first one we meet.
+            </p>
+<pre class="code">
+$ gdb -q PicasaPhotoViewer.exe
+(gdb) b *0x436598
+(gdb) b *0x4366b1
+(gdb) b *0x436bbd
+(gdb) b *0x4d05f2
+(gdb) r a.jpg
+Starting program: PicasaPhotoViewer.exe a.jpg
+[New Thread 5920.0x17cc]
+[New Thread 5920.0x54]
+[New Thread 5920.0x4c8]
+[New Thread 5920.0x2004]
+
+Breakpoint 2, 0x004366b1 in ?? ()
+(gdb) p $eax
+$1 = 0
+</pre>
+            <p>
+              Do this again, but this time we open a photo using picasa first.
+              (If it checks other instances, <code>%eax</code> should change
+              here.)
+            </p>
+<pre class="code">
+(gdb) r
+The program being debugged has been started already.
+Start it from the beginning? (y or n) y
+Starting program: PicasaPhotoViewer.exe a.jpg
+[New Thread 5336.0x734]
+[New Thread 5336.0xc44]
+[New Thread 5336.0x15a8]
+[New Thread 5336.0x40c]
+
+Breakpoint 2, 0x004366b1 in ?? ()
+(gdb) p $eax
+$2 = 183
+</pre>
+            <p>
+              Bingo! 183 equals 0xb7.
+              This is the point we want.
+              Go find the dump file
+            </p>
+<pre class="code">
+$ objdump -d PicasaPhotoViewer.exe
+...
+4366a0: ff 15 7c a1 6e 00  call   *0x6ea17c
+4366a6: a3 f4 dc 79 00     mov    %eax,0x79dcf4
+4366ab: ff 15 70 a1 6e 00  call   *0x6ea170
+4366b1: 3d b7 00 00 00     cmp    $0xb7,%eax
+4366b6: 74 05              je     0x4366bd
+...
+</pre>
+            <code>*0x6ea17c</code> is <code>CreateMutex</code> and
+            <code>*0x6ea170</code> is <code>GetLastError</code>.
+            To substitute the <code>je</code>, I used 2 <code>nop</code>
+            (does nothing) assembly code (0x90).
+<pre class="code">
+# modifier.rb
+s = File.open('PicasaPhotoViewer.exe', 'rb'){|f| f.read}
+a = s.scan(/\x3d\xb7\x00\x00\x00\x74\x05/n)
+if a.size == 1 # make sure this appears only once
+  s.sub!(/\x3d\xb7\x00\x00\x00\x74\x05/n, "\x3d\xb7\x00\x00\x00\x90\x90".b)
+  File.open('Picasa-modified.exe', 'wb'){|f| f.print(s)}
+end
+</pre>
+<pre class="code">
+$ ruby modifier.rb
+</pre>
+            <p>
+              Done! Replace to the origin one in computer and we can view
+              multiple photos in the same time!
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="article_init()"></div>
+    </div>
+  </body>
+</html>

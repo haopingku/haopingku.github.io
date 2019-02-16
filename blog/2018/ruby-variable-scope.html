@@ -1,0 +1,287 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+    <script src="/javascript/markdown.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#yarv" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-code">YARV</span></a></li>
+        <li><a href="#conclusion" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Conclusion</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Ruby's Variable Scope</div>
+          <div class="blog-date">Dec 26, 2018</div>
+          <div class="align-left">
+            <p>
+              In Ruby, <code>for</code> loop does things like calling an
+              array's <code>each</code> method.
+              And indeed, for loop is implemented by calling <code>each</code>
+              (we will see this later).
+              A huge difference between for loop and <code>each</code> is the
+              scope of variable.
+              For example, for calling <code>each</code> with a block (an
+              instance of <code>Proc</code> class).
+            </p>
+<pre class="code code-ruby">
+[1, 2].map do |i|
+  if false
+    a = 1
+  end
+end
+p defined?(i), defined?(a)
+</pre>
+            <p>
+              The results are both <code>nil</code>.
+              It's easy to understand, becase <code>i</code> and <code>a</code>
+              are in the block.
+              But for the <code>for</code> one.
+            </p>
+<pre class="code code-ruby">
+for i in []
+  if false
+    a = 1
+  end
+end
+p defined?(i), defined?(a)
+p i, a # nil, nil
+</pre>
+            <p>
+              Surprisingly, the results become both <code>"local-variable"</code>,
+              and the values are both nil.
+              Even if the <code>for</code> and <code>if</code> are not executed!
+            </p>
+            <p>
+              This is weird comparing to other programming languages, for
+              example in Python
+            </p>
+<pre class="code code-python">
+if True:
+    a = 1
+print(a) # ok, this prints 1
+</pre>
+<pre class="code code-python">
+if False:
+    a = 2
+print(a)
+
+# Traceback (most recent call last):
+#   File "test.py", line 3, in &lt;module&gt;
+#     print(a)
+# NameError: name 'a' is not defined
+</pre>
+            <p>
+              variable <code>a</code> exists if it is initialized.
+            </p>
+            <p>
+              It seems that Ruby creates variables not in the runtime, but
+              the compile time.
+              Let's find out how it really works in Ruby's YARV instructions
+              (I am using Ruby2.5.3/Linux).
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="yarv">
+        <div class="container">
+          <h3>YARV instructions</h3>
+          <div class="align-left">
+            <p>
+              Let's see the block one, it's easier.
+            </p>
+<pre class="code">
+$ irb
+irb(main):001:0&gt; code = 'i = 100; (0...0).each{|j| i = 200}; puts i, j'
+irb(main):002:0&gt; puts RubyVM::InstructionSequence.compile(code).disasm
+...
+local table (size: 1, argc: 1 [opts: 0, rest: -1, post: 0, block: -1, kw: -1@-1, kwrest: -1])
+[ 1] j&lt;Arg&gt;
+0000 nop                                                              (   1)[Bc]
+0001 putobject        200[Li]
+0003 dup
+0004 setlocal_OP__WC__1 i
+0006 leave            [Br]
+|------------------------------------------------------------------------
+local table (size: 1, argc: 0 [opts: 0, rest: -1, post: 0, block: -1, kw: -1@-1, kwrest: -1])
+[ 1] i
+0000 putobject        100                                             (   1)[Li]
+0002 setlocal_OP__WC__0 i
+0004 putobject        0...0
+0006 send             &lt;callinfo!mid:each, argc:0&gt;, &lt;callcache&gt;, block in &lt;compiled&gt;
+0010 pop
+0011 putself
+0012 getlocal_OP__WC__0 i
+0014 putself
+0015 opt_send_without_block &lt;callinfo!mid:j, argc:0, FCALL|VCALL|ARGS_SIMPLE&gt;, &lt;callcache&gt;
+0018 opt_send_without_block &lt;callinfo!mid:puts, argc:2, FCALL|ARGS_SIMPLE&gt;, &lt;callcache&gt;
+0021 leave
+</pre>
+            <p>
+              <code>getlocal_OP__WC__0</code> and <code>setlocal_OP__WC__0</code>
+              are special instructions, see explanation
+              <a href="#get-set-local">here</a>.
+            </p>
+            <p>
+              There are two local tables, let's see the second one which has
+              local variable <code>i</code>, it does
+              <ul>
+                <li>put object <code>100</code> into the stack,
+                  set <code>i</code> as the value in the top of stack (100)</li>
+                <li>put object <code>0...0</code> into stack,
+                  call <code>each</code> with no argument</li>
+                <li>pop the result of <code>each</code></li>
+                <li>put self (for <code>puts</code>)</li>
+                <li>get <code>i</code></li>
+                <li>put self (for calling <code>j</code>)</li>
+                <li>call <code>j</code> (i.e. <code>main.j</code>)</li>
+                <li>call <code>puts</code> (i.e. <code>main.puts(i, main.j)</code>)</li>
+              </ul>
+              We can see here Ruby handles <code>j</code> as a method, because
+              there is no variable <code>j</code> here.
+              And of course this raises <code>NameError</code>.
+              The <code>each</code> method is written in C code, so no
+              compiled YARV is present.
+              In the first local table, it has local variable <code>j</code> and does
+              <ul>
+                <li>nop (no operation)</li>
+                <li>put 200 for the return value in block</li>
+                <li>dup "put 200" again for setting <code>i</code></li>
+                <li>set <code>i</code> (notice <code>setlocal_OP__WC__"1"</code>)</li>
+              </ul>
+            </p>
+            <p>
+              And the for loop one is
+            </p>
+<pre class="code">
+$ irb
+irb(main):001:0&gt; code = 'i = 100; for j in 0...0 do i = 200 end; puts i, j'
+irb(main):002:0&gt; puts RubyVM::InstructionSequence.compile(code).disasm
+...
+local table (size: 1, argc: 1 [opts: 0, rest: -1, post: 0, block: -1, kw: -1@-1, kwrest: -1])
+[ 1] ?&lt;Arg&gt;
+0000 getlocal_OP__WC__0 *                                             (   1)
+0002 setlocal_OP__WC__1 j
+0004 nop              [Bc]
+0005 putobject        200[Li]
+0007 dup
+0008 setlocal_OP__WC__1 i
+0010 leave            [Br]
+|------------------------------------------------------------------------
+local table (size: 2, argc: 0 [opts: 0, rest: -1, post: 0, block: -1, kw: -1@-1, kwrest: -1])
+[ 2] i          [ 1] j
+0000 putobject        100                                             (   1)[Li]
+0002 setlocal_OP__WC__0 i
+0004 putobject        0...0
+0006 send             &lt;callinfo!mid:each, argc:0&gt;, &lt;callcache&gt;, block in &lt;compiled&gt;
+0010 pop
+0011 putself
+0012 getlocal_OP__WC__0 i
+0014 getlocal_OP__WC__0 j
+0016 opt_send_without_block &lt;callinfo!mid:puts, argc:2, FCALL|ARGS_SIMPLE&gt;, &lt;callcache&gt;
+0019 leave
+</pre>
+            <p id="test-a">
+              Most of the instructions are the same as <code>each</code>, but
+              both <code>i</code> and <code>j</code> are in the second local
+              table, that is, <code>j</code> is also accessable outside
+              the <code>for</code> loop.
+              In the first local table, <code>i</code> and <code>j</code> can
+              be accessed in the same way using <code>getlocal_OP__WC__1 *</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="conclusion">
+        <div class="container">
+          <h3>Conclusion</h3>
+          <div class="align-left">
+            <p>
+              Ruby's <code>for</code> (as well as <code>if</code>,
+              <code>while</code>, etc.) do not create new scope for variables.
+              Variables are created in the compile time, so they exist even
+              if they are not initialized in the runtime.
+              On the other side, blocks create a new scope, and uses
+              <code>{get,set}local *, ** (** &gt; 0)</code> for accessing or
+              setting variables outside the block itself.
+            </p>
+            <hr>
+            <p>
+              Benchmark of using <code>each</code> and <code>for</code>
+            </p>
+<pre class="code code-ruby">
+require 'benchmark'
+
+def f1
+  sum = 0
+  for i in 0 ... 1000
+    sum += 1
+  end
+end
+
+def f2
+  sum = 0
+  (0 ... 1000).each do |i|
+    sum += 1
+  end
+end
+
+n = 10000
+Benchmark.bmbm do |x|
+  x.report{ n.times { f1 }}
+  x.report{ n.times { f2 }}
+end
+</pre>
+            <p>
+              Seems that for loop is slower the <code>each</code>, I think
+              the reason is the additional
+              <code>getlocal</code> and <code>setlocal</code>
+              in for loop.
+            </p>
+<pre class="code">
+Rehearsal ------------------------------------
+   0.594000   0.000000   0.594000 (  0.587048)
+   0.531000   0.000000   0.531000 (  0.538111)
+--------------------------- total: 1.125000sec
+
+       user     system      total        real
+   0.578000   0.000000   0.578000 (  0.583651)
+   0.547000   0.000000   0.547000 (  0.542321)
+</pre>
+            <hr>
+            <p>About <code>{get,set}local_OP__WC__** *</code></p>
+            <p id="get-set-local">
+              <code>{get,set}local_OP__WC__** *</code> is an optimized instruction of
+              <code>{get,set}local *, **</code>, for example
+              <code>getlocal_OP__WC__0 i</code> is equal to
+              <code>getlocal i, 0</code>, etc.
+              The first argument <code>*</code> is the name (or the offset in
+              local table) of the variable, and the second one <code>**</code>
+              is for searching the variable in the calling stack in Ruby runtime.
+            </p>
+            <p>
+              For more descriptions of how the process of finding local variable
+              really works, read Pat Shaughnessy's excellent book
+              <i><a href="http://patshaughnessy.net/ruby-under-a-microscope">
+                Ruby Under a Microscope</a>, Chapter 3: How Ruby Executes Your Code</i>.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="article_init()"></div>
+    </div>
+  </body>
+</html>

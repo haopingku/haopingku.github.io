@@ -1,0 +1,27 @@
+#main div.markdown {
+    -font-size: 80%;
+}
+#main div.markdown h1, #main div.markdown h2 {
+    font-weight: bold;
+}
+#main div.markdown h1 {
+    font-size: 200%;
+}
+#main div.markdown h2 {
+    font-size: 150%;
+}
+#main div.markdown h3 {
+    font-size: 120%;
+}
+#main div.markdown code {
+    color: #7D0000;
+}
+#main div.markdown ul {
+    padding-left: 2em;
+}
+#main div.markdown li {
+    list-style: initial;
+}
+#main div.markdown li:before {
+    content: none;
+}
