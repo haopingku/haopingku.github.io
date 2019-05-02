@@ -21,12 +21,12 @@
           <div class="blog-date">May 21, 2017</div>
           <div class="align-left">
             <p>
-              Picasa3 photo viewer is good (though Google stop supporting it).
+              Picasa3 photo viewer is good (though Google stopped supporting it).
               I love to use it, but it has a strange feature that it checks if
               there is already an picasa3 photo viewer window (instance) opened.
-              If so, it tells the opened one to change the picture instead of
-              opening a new one.
-              In other words, you can't open multiple pictures in the same time.
+              If so, it uses the opened window one to show the new photo instead
+              of opening a new window for it.
+              In other words, you can't open multiple photos in the same time.
               Annoying!
             </p>
             <p>
@@ -83,10 +83,11 @@ CreateMutexA
               little experience
             </p>
 <pre class="code code-c">
-// test.c
+/* test.c */
 #include &lt;windows.h&gt;
 #include &lt;stdio.h&gt;
 #include &lt;conio.h&gt;
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     SetLastError(NO_ERROR);
     CreateMutex(NULL, 0, TEXT("test"));
@@ -107,7 +108,7 @@ $ gcc -o test test.c
 $ objdump -d test.exe
 </pre>
             <p>
-              We can get the assembly code here
+              And the assembly code here
             </p>
 <pre class="code">
 ...
@@ -123,8 +124,8 @@ $ objdump -d test.exe
 ...
 </pre>
             <p>
-              First three lines puts parameters from right to left.
-              Then it calls <code>CreateMutexA</code> in 0x401360,
+              First three lines put parameters from right to left into the stack.
+              Then <code>CreateMutexA</code> in 0x401360 is called,
               <code>GetLastError</code> in 0x401368, compares to
               <code>ERROR_ALREADY_EXISTS</code> in 0x40136d.
             </p>
@@ -139,10 +140,10 @@ $ objdump -d test.exe
               <li>4d05f2</li>
             </ul>
             <p>
-              (Picasa calls <code>CreateMutex</code> not only once, you can
-              check it by GDB.)
-              Now we set this positions as breakpoints.
-              I guess that the one we want is the first one we meet.
+              Picasa calls <code>CreateMutex</code> not only once, you can
+              check it by GDB.
+              Now we set these positions as breakpoints.
+              I guess the one we want is the first one we meet.
             </p>
 <pre class="code">
 $ gdb -q PicasaPhotoViewer.exe
@@ -198,7 +199,7 @@ $ objdump -d PicasaPhotoViewer.exe
             <code>*0x6ea17c</code> is <code>CreateMutex</code> and
             <code>*0x6ea170</code> is <code>GetLastError</code>.
             To substitute the <code>je</code>, I used 2 <code>nop</code>
-            (does nothing) assembly code (0x90).
+            assembly code (0x90, which does nothing).
 <pre class="code">
 # modifier.rb
 s = File.open('PicasaPhotoViewer.exe', 'rb'){|f| f.read}
@@ -212,8 +213,8 @@ end
 $ ruby modifier.rb
 </pre>
             <p>
-              Done! Replace to the origin one in computer and we can view
-              multiple photos in the same time!
+              Done.
+              Using this one we can view multiple photos in the same time!
             </p>
           </div>
         </div>
