@@ -11,8 +11,8 @@
     <nav id="t-nav">
       <ul>
         <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
-        <li><a href="#ruby" id="ruby-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Ruby's Hash</span></a></li>
-        <li><a href="#go" id="go-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Go's map</span></a></li>
+        <li><a href="#ruby" id="rubys-hash-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Ruby's Hash</span></a></li>
+        <li><a href="#go" id="gos-hash-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Golang's map</span></a></li>
         <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
       </ul>
     </nav>
@@ -158,10 +158,10 @@ rebuild_table(st_table *tab)
       </section>
       <section id="go">
         <div class="container">
-          <h3>Go's map</h3>
+          <h3>Golang's map</h3>
           <div class="align-left">
             <p>
-              And in Go's hashmap, <code>map</code>, is implemented in
+              And in Golang's hashmap, <code>map</code>, is implemented in
               <a href="https://github.com/golang/go/blob/master/src/runtime/map.go">
                 <code>src/runtime/map.go</code>
               </a>.
@@ -220,7 +220,7 @@ bucketloop:
           <h3>Conclusion</h3>
           <div class="align-left">
             <p>
-              Hashmap in both Ruby and Go reallocates when the size increases
+              Hashmap in both Ruby and Golang reallocates when the size increases
               for re-placing objects in buckets. But the reallocation is not
               invoked when the size decreases.
             </p>

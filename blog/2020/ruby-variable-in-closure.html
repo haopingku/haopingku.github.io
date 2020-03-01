@@ -1,0 +1,186 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#function" id="function-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Function</span></a></li>
+        <li><a href="#conclusion" id="conclusion-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Conclusion</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Ruby's Variable in Closure</div>
+          <div class="blog-date">Mar 1, 2020</div>
+          <div class="align-left">
+            <p>
+              We know that closures can access the variable which is defined
+              outside, but in detail, how does that happen?
+              For example this
+            </p>
+<pre class="code code-ruby">
+i = 1
+a = ->(n) {
+  i + n
+}
+p a.(2) # 3
+</pre>
+            <p>
+              <code>a</code> is a closure and we know that the return value
+              is 3. But how about this:
+            </p>
+<pre class="code code-ruby">
+i = 1
+a = ->() {
+  p i # prints 1 or 2?
+}
+b = ->() {
+  i = 2
+  a.()
+}
+b.()
+</pre>
+            <p>
+              Is the answer 1 or 2?
+            </p>
+            <p>
+              Surprisingly the answer is 2! How does that happen?
+            </p>
+            <p>
+              This is called <i>lexical scope</i>.
+              The variable <code>i</code> in
+              lambda <code>b</code> is the same as the <code>i</code>
+              outside, so the process is like
+              <ul>
+                <li>create <code>i</code></li>
+                <li>create <code>a</code>, which can access <code>i</code> outside</li>
+                <li>create <code>b</code>, which can access <code>i</code> outside</li>
+                <li>call <code>b</code>, which change the value of <code>i</code> outside</li>
+              </ul>
+            </p>
+            <p>
+              One more example, lets move the assignment of <code>i</code>
+              after <code>a</code>, what is the output?
+            </p>
+<pre class="code code-ruby">
+a = ->() {
+  ps i # ?
+}
+i = 1 # i moved to here!!
+b = ->() {
+  i = 2
+  a.()
+}
+b.()
+</pre>      
+            <p>
+              Error!
+            </p>
+            <p>
+              <code>undefined local variable or method `i' for main:Object (NameError)</code>
+            </p>
+            <p>
+              The reason is: when creating <code>a</code>, the interpreter didn't
+              find <code>i</code>, so it assumed <code>i</code> to be a function
+              (although it says "undefined local variable or method").
+              We can know this in YARV (refer to 
+              <a href="/blog/2018/ruby-variable-scope.html">here</a>
+              for how to get YARV)
+            </p>
+<pre class="code">
+# this is a
+== disasm: #&lt;ISeq:block in &lt;compiled&gt;@&lt;compiled&gt;&gt;=======================
+...
+0006 opt_send_without_block &lt;callinfo!mid:i, argc:0, FCALL|VCALL|ARGS_SIMPLE&gt;, &lt;callcache&gt;
+0009 opt_send_without_block &lt;callinfo!mid:p, argc:1, FCALL|ARGS_SIMPLE&gt;, &lt;callcache&gt;
+...
+# this is b
+== disasm: #&lt;ISeq:block in &lt;compiled&gt;@&lt;compiled&gt;&gt;=======================
+...
+0004 putobject        2
+0006 setlocal_OP__WC__1 3
+...
+</pre>
+            <p>
+              <code>opt_send_without_block &lt;callinfo!mid:i ...</code> implies
+              that the interpreter think <code>i</code> is a function.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="function">
+        <div class="container">
+          <h3>Function</h3>
+          <div class="align-left">
+            <p>
+              Functions, on the other hands, are different to closures.
+              The lambda (closure) one, obviously it print 2, as we see above
+            </p>
+<pre class="code code-ruby">
+i = 1
+call_proc = lambda { |p|
+  i = 2
+  p.() # 2
+}
+my_proc = lambda{ puts i }
+call_proc.(my_proc)
+</pre>
+            <p>
+              But how about function
+            </p>
+<pre class="code code-ruby">
+i = 1
+def call_proc p
+  i = 2
+  p.()
+end
+my_proc = lambda{ puts i }
+call_proc(my_proc)
+</pre>
+            <p>
+              The answer is 1.
+              Because functions have its own variable scopes in stack.
+              <code>i</code> in function is a new variable, not the one outside.
+              also <code>i</code> can be move after <code>call_proc</code>
+            </p>
+<pre class="code code-ruby">
+def call_proc p
+  i = 2
+  p.()
+end
+i = 1 # i moved
+my_proc = lambda{ puts i } # still prints 1
+call_proc(my_proc)
+</pre>
+          </div>
+        </div>
+      </section>
+      <section id="conclusion">
+        <div class="container">
+          <h3>Conclusion</h3>
+          <div class="align-left">
+            <p>
+              If variable exists outside, Ruby's closures access it, and all the
+              assignment affects it outside; if not, closures assumes it to be a
+              function.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="article_init()"></div>
+    </div>
+  </body>
+</html>

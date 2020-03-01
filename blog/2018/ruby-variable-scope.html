@@ -11,8 +11,8 @@
     <nav id="t-nav">
       <ul>
         <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
-        <li><a href="#yarv" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-code">YARV</span></a></li>
-        <li><a href="#conclusion" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Conclusion</span></a></li>
+        <li><a href="#yarv" id="yarv-link" class="skel-layers-ignoreHref"><span class="icon fa-code">YARV</span></a></li>
+        <li><a href="#conclusion" id="conclusion-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Conclusion</span></a></li>
         <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
       </ul>
     </nav>
@@ -59,35 +59,55 @@ p i, a # nil, nil
               Surprisingly, the results become both <code>"local-variable"</code>,
               and the values are both nil.
               Even if the <code>for</code> and <code>if</code> are not executed!
+              This is called "variable hoisting" (Ruby's variable hoisting is
+              much different to Javascript's)
             </p>
             <p>
-              This is weird comparing to other programming languages, for
-              example in Python
+              Comparing to other programming languages
             </p>
+<pre class="code code-ruby">
+# Ruby
+if true
+  i = 1
+end
+if false
+  j = 2
+end
+p i # 1
+p j # nil
+p k # undefined local variable or method `k' for main:Object (NameError)
+k = 3
+</pre>
 <pre class="code code-python">
+# Python
 if True:
-    a = 1
-print(a) # ok, this prints 1
-</pre>
-<pre class="code code-python">
+    i = 1
 if False:
-    a = 2
-print(a)
-
-# Traceback (most recent call last):
-#   File "test.py", line 3, in &lt;module&gt;
-#     print(a)
-# NameError: name 'a' is not defined
+    j = 2
+print(i) # 1
+print(j) # NameError: name 'j' is not defined
+print(k) # NameError: name 'k' is not defined
+k = 3
 </pre>
-            <p>
-              variable <code>a</code> exists if it is initialized.
-            </p>
-            <p>
-              It seems that Ruby creates variables not in the runtime, but
-              the compile time.
-              Let's find out how it really works in Ruby's YARV instructions
-              (I am using Ruby2.5.3/Linux).
-            </p>
+<pre class="code code-js code-javascript">
+// JS
+if (true) {
+  var i = 1;
+  let j = 2;
+}
+if (false) {
+  var k = 3;
+  let l = 4;
+}
+console.log(i); // 1
+console.log(j); // ReferenceError: j is not defined
+console.log(k); // undefined
+console.log(l); // ReferenceError: l is not defined
+console.log(m); // undefined
+console.log(n); // ReferenceError: n is not defined
+var m = 5;
+let n = 6;
+</pre>
           </div>
         </div>
       </section>
@@ -95,6 +115,11 @@ print(a)
         <div class="container">
           <h3>YARV instructions</h3>
           <div class="align-left">
+            <p>
+              Get back to Ruby, let's find out how it really works in
+              Ruby's YARV instructions
+              (I am using Ruby2.5.3/Linux).
+            </p>
             <p>
               Let's see the block one, it's easier.
             </p>
