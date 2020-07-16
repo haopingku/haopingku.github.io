@@ -115,7 +115,7 @@ code, pre.code, .code {
     }
 }
 
-#main >section li:before {
+#main >section ul li:before {
     font-family: "FontAwesome";
     content: "\00a0\00a0\00a0\f120\00a0\00a0";
 }

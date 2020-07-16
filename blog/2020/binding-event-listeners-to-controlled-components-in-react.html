@@ -1,0 +1,327 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <link rel="stylesheet" href="/stylesheet/theme.css"/>
+    <script src="/javascript/jquery.min.js"></script>
+    <script src="/javascript/theme.js"></script>
+  </head>
+  <body>
+    <nav id="t-nav">
+      <ul>
+        <li><a href="#top" id="top-link" class="skel-layers-ignoreHref"><span class="icon fa-chevron-up">Top</span></a></li>
+        <li><a href="#conclusion" id="conclusion-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Conclusion</span></a></li>
+        <li><a href="#appendix" id="appendix-link" class="skel-layers-ignoreHref"><span class="icon fa-code">Appendix</span></a></li>
+        <li><a href="#back" id="back-link" class="skel-layers-ignoreHref"><span class="icon fa-file-text-o">Back</span></a></li>
+      </ul>
+    </nav>
+    <div id="t-main">
+      <section id="top">
+        <div class="container">
+          <div class="blog-title">Binding Event Listeners to Controlled Components in React</div>
+          <div class="blog-date">Jul 16, 2020</div>
+          <div class="align-left">
+            <p>
+              Controlled components are components which's value is controlled
+              by React, such as <code>input</code>, <code>textarea</code>...
+              The normal usage of controlled components is to add the
+              <code>onChange</code> to get if the value changes, for example        
+<pre class="code code-jsx">
+class A extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      value: ''
+    };
+  }
+  render() {
+    return &lt;input
+      onChange={(e) => this.setState({ value: e.target.value })}
+      value={this.state.value}
+      /&gt;
+  }
+}
+</pre>
+            </p>
+            <p>
+              Recently I encountered a situation that I have to bind event listeners
+              to the <code>input</code> element, like
+<pre class="code code-jsx">
+class A extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            value: ''
+        };
+        this.inputRef = React.createRef();
+        this.handleChange = this.handleChange.bind(this);
+    }
+    componentDidMount() {
+        console.log('componentDidMount');
+        this.inputRef.current.addEventListener('input', () => {
+            const q = this.inputRef.current.value;
+            console.log('oninput 1 ' + q);
+        });
+        this.inputRef.current.addEventListener('input', () => {
+            const q = this.inputRef.current.value;
+            console.log('oninput 2 ' + q);
+        });
+    }
+    handleChange(e) {
+        const value = e.target.value;
+        console.log('onChange ' + value);
+        this.setState({ value }, () => console.log('after setState in handleChange'));
+    }
+    render() {
+        console.log('A.render');
+        return &lt;input
+            value={this.state.value}
+            ref={this.inputRef}
+            onChange={this.handleChange}/&gt;
+    }
+}
+</pre>        
+            </p>
+            <p>
+              In this class, we have two <code>oninput</code> event listeners
+              attached.
+              This works fine if we type (for example "a"), the console
+              output will be
+<pre class="code">
+oninput 1 a
+oninput 2 a
+onChange a
+A.render
+after setState in handleChange
+</pre>
+            </p>
+            <p>
+              Notice that <code>onChange</code> is called later than <code>oninput</code> event listeners.
+              This order matters!
+            </p>
+            <p>
+              Then, if we add <code>setState</code> in one event listener
+<pre class="code code-jsx">
+this.inputRef.current.addEventListener('input', (e) => {
+    const q = this.inputRef.current.value;
+    console.log('oninput 1 ' + q);
+    if (q.length === 0) {
+        this.setState({});
+    }
+});
+</pre>
+              </p>
+            <p>
+              Even if the <code>setState</code> obviously does nothing.
+              When we try to delete the last char in the input box, the console output will be
+<pre class="code">
+oninput 1 
+A.render
+oninput 2 a
+</pre>
+              When it runs the 1st <code>oninput</code> event listener, it
+              works fine that the <code>this.inputRef.current.value</code> is
+              an empty string, but when it runs the 2nd one, the value
+              returns to "a" again.
+              The root cause is in the React source code <code>./node_modules/react-dom/cjs/react-dom.development.js</code>.
+<pre class="code code-js">
+function trackValueOnNode(node) {
+  // ...
+  Object.defineProperty(node, valueField, {
+    configurable: true,
+    get: function () {
+      return get.call(this);
+    },
+    set: function (value) {
+      currentValue = '' + value;
+      set.call(this, value);
+    }
+  });
+  // ...
+  var tracker = {
+    getValue: function () {
+      return currentValue;
+    },
+    setValue: function (value) {
+      currentValue = '' + value;
+    },
+    stopTracking: function () {
+      detachTracker(node);
+      delete node[valueField];
+    }
+  };
+  return tracker;
+}
+// ...
+function updateValueIfChanged(node) {
+  if (!node) {
+    return false;
+  }
+
+  var tracker = getTracker(node); // if there is no tracker at this point it's unlikely
+  // that trying again will succeed
+
+  if (!tracker) {
+    return true;
+  }
+
+  var lastValue = tracker.getValue();
+  var nextValue = getValueFromNode(node);
+
+  if (nextValue !== lastValue) {
+    tracker.setValue(nextValue);
+    return true;
+  }
+
+  return false;
+}
+</pre>
+            </p>
+            <p>
+              The process is:
+              <ol style="padding-left: 1em; list-style: decimal;">
+                <li>
+                  click DELETE to delete the last char (lets say <code>"a"</code>) in inputbox
+                </li>
+                <li>
+                  React runs the first <code>oninput</code> event listener
+                  <ol style="padding-left: 2em; list-style: decimal;">
+                    <li>
+                      the <code>q = this.inputRef.current.value</code> is an empty string, as expected
+                    </li>
+                    <li>
+                      because <code>q.length === 0</code> it calls <code>this.setState({});</code>
+                    </li>
+                    <li>
+                      <code>setState</code> causes <code>A</code> to be rendered again,
+                      because something has changed (notice it's extending <code>React.Component</code>,
+                      not <code>React.PureComponent</code>)
+                    </li>
+                    <li>
+                      the <code>set</code> function in <code>Object.defineProperty(node...</code>
+                      sets the value of the node (<code>input</code>) to <code>"a"</code>.
+                      (Becuase <code>onChange</code> is not called, <code>this.state.value</code>
+                      is still <code>"a"</code>, and React finds <code>this.inputRef.current.value</code>
+                      is <code>""</code> so React resets it to <code>"a"</code>.
+                    </li>
+                  </ol>
+                </li>
+                <li>
+                  React runs the second <code>oninput</code>, because
+                  <code>this.inputRef.current.value</code> is reset, so it gets <code>"a"</code>
+                </li>
+                <li>
+                  React runs <code>onChange</code>
+                  <ol style="padding-left: 2em; list-style: decimal;">
+                    <li>
+                      <code>onChange</code> uses function <code>updateValueIfChanged</code> (see appendix)
+                    </li>
+                    <li>
+                      <code>updateValueIfChanged</code> compares <code>lastvalue</code>
+                      and <code>nextvalue</code>, they are the same (<code>"a"</code>) because
+                      it's reset in <code>render</code> called by <code>setState</code> above
+                    </li>
+                    <li>
+                      because nothing changes, React decides NOT to call <code>onChange</code>
+                    </li>
+                </li>
+              </ol>
+            </p>
+
+          </div>
+        </div>
+      </section>
+      <section id="conclusion">
+        <div class="container">
+          <h3>Conclusion</h3>
+          <div class="align-left">
+            <p>
+              <ul>
+                <li>
+                  <code>setState</code> is not really "async", at least it runs immediately in this case
+                </li>
+                <li>
+                  In a typical React code, we should not add event listeners ourselves by React Refs.
+                </li>
+                <li>
+                  all event listenrs to should be "async" by wrapping them with <code>setTimeout()</code>
+                </li>
+              </ul>
+            </p>
+            <p>
+              I found an issue related to this after the debugging
+              (<a href="https://github.com/facebook/react/issues/13424">here</a>).
+            </p>
+          </div>
+        </div>
+      </section>
+      <section id="appendix">
+        <div class="container">
+          <h3>Appendix</h3>
+          <div class="align-left">
+            <p>
+              React's <code>onChange</code> hooks <code>input</code>,
+              <code>change</code>, <code>beforeinput</code> and <code>click</code>
+              , see <a href="https://github.com/facebook/react/blob/master/packages/react-interactions/events/src/dom/Input.js">here</a>.
+            </p>
+<pre class="code code-jsx">
+// packages/react-interactions/events/src/dom/Input.js
+const targetEventTypes = ['input', 'change', 'beforeinput', 'click'];
+// ...
+const inputResponderImpl = {
+  targetEventTypes,
+  onEvent(
+    event: ReactDOMResponderEvent,
+    context: ReactDOMResponderContext,
+    props: InputResponderProps,
+  ): void {
+    const {type, target} = event;
+
+    if (props.disabled) {
+      return;
+    }
+    const currentTarget = context.getResponderNode();
+    if (target !== currentTarget || currentTarget === null) {
+      return;
+    }
+    switch (type) {
+      default: {
+        if (shouldUseChangeEvent(target) && type === 'change') {
+          dispatchBothChangeEvents(event, context, props, currentTarget);
+        } else if (
+          isTextInputElement(target) &&
+          (type === 'input' || type === 'change') &&
+          updateValueIfChanged(target)
+        ) {
+          dispatchBothChangeEvents(event, context, props, currentTarget);
+        } else if (
+          isCheckable(target) &&
+          type === 'click' &&
+          updateValueIfChanged(target)
+        ) {
+          dispatchBothChangeEvents(event, context, props, currentTarget);
+        }
+        break;
+      }
+    }
+  },
+};
+
+// $FlowFixMe Can't add generic types without causing a parsing/syntax errors
+export const InputResponder = React.DEPRECATED_createResponder(
+  'Input',
+  inputResponderImpl,
+);
+</pre>              
+          </div>
+        </div>
+      </section>
+      <section id="back">
+        <div class="container">
+          <a href="/blog/index.html">Back to blog</a>
+        </div>
+      </section>
+      <div id="js-init" onclick="article_init()"></div>
+    </div>
+  </body>
+</html>
